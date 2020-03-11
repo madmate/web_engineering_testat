@@ -6,9 +6,13 @@
 Basic example for a bot that uses inline keyboards.
 """
 import logging
+import os
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
+
+from os.path import join, dirname
+from dotenv import load_dotenv
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -42,10 +46,13 @@ def error(update, context):
 
 
 def main():
+    # load dotenv as environment   variable
+    dotenv_path = join(dirname(__file__), '.env')
+    load_dotenv(dotenv_path)
     # Create the Updater and pass it your bot's token.
     # Make sure to set use_context=True to use the new context based callbacks
     # Post version 12 this will no longer be necessary
-    updater = Updater("BOT_API_TOKEN", use_context=True)
+    updater = Updater(os.environ.get("BOT_API_TOKEN"), use_context=True)
 
     updater.dispatcher.add_handler(CommandHandler('start', start))
     updater.dispatcher.add_handler(CallbackQueryHandler(button))
