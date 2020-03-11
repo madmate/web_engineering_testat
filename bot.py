@@ -5,6 +5,7 @@
 """
 Basic example for a bot that uses inline keyboards.
 """
+import json
 import logging
 import os
 
@@ -14,17 +15,25 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from os.path import join, dirname
 from dotenv import load_dotenv
 
+from parser import get_menu
+
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+url = 'https://www.izmir-kebap-friedrichshafen.de'
+print(get_menu(url))
+menu = json.loads(get_menu(url))
+print(menu)
+
 
 def start(update, context):
-    keyboard = [[InlineKeyboardButton("Option 1", callback_data='1'),
-                 InlineKeyboardButton("Option 2", callback_data='2')],
-
-                [InlineKeyboardButton("Option 3", callback_data='3')]]
-
+    keyboard = []
+    for menu_cat in menu:
+        print(menu_cat['category'])
+        keyboard.append(InlineKeyboardButton(menu_cat['category'], callback_data="1"))
+    #
+    print(keyboard)
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     update.message.reply_text('Please choose:', reply_markup=reply_markup)
