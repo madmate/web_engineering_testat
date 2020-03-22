@@ -29,20 +29,31 @@ print(menu)
 
 def start(update, context):
     keyboard = []
-    for menu_cat in menu:
-        print(menu_cat['category'])
-        keyboard.append(InlineKeyboardButton(menu_cat['category'], callback_data="1"))
-    #
-    print(keyboard)
+    for category_id in menu.keys():
+        keyboard.append([InlineKeyboardButton(str(menu[category_id]['category']),
+                                              callback_data=json.dumps({"category_id": category_id,
+                                                                        "product_id": 00}))])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+    update.message.reply_text('Please choose :', reply_markup=reply_markup)
 
 
 def button(update, context):
     query = update.callback_query
+    ids = json.loads(query.data)
+    category_id = ids['category_id']
+    product_id = ids['product_id']
+    keyboard = []
 
-    query.edit_message_text(text="Selected option: {}".format(query.data))
+    products = menu[category_id]['products']
+    for product_id in products.keys():
+        product = products[product_id]
+        keyboard.append([InlineKeyboardButton(product['name'] + " " + product['price'], callback_data=str(product_id))])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.edit_message_text('Select desired food in ' + menu[category_id]['category'] + ":", reply_markup=reply_markup)
 
 
 def help(update, context):
