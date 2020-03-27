@@ -15,7 +15,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 from os.path import join, dirname
 from dotenv import load_dotenv
 
-from parser import get_menu
+from src.parser import get_menu
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
