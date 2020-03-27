@@ -1,58 +1,91 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler, InlineQueryHandler, Filters
-from telegram import InlineQueryResultArticle, InputTextMessageContent
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# This program is dedicated to the public domain under the CC0 license.
+
+"""
+Basic example for a bot that uses inline keyboards.
+"""
+import json
 import logging
+import os
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler
 
-updater = Updater(token='1073374646:AAG5HvZwcDmNr5xYM_26UseY8nfSct4bqQA', use_context=True)
-dispatcher = updater.dispatcher
+from os.path import join, dirname
+from dotenv import load_dotenv
+
+from parser import get_menu
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+url = 'https://www.izmir-kebap-friedrichshafen.de'
+print(get_menu(url))
+menu = json.loads(get_menu(url))
+print(menu)
 
 
 def start(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+    keyboard = []
+    for category_id in menu.keys():
+        keyboard.append([InlineKeyboardButton(str(menu[category_id]['category']),
+                                              callback_data=json.dumps({"category_id": category_id,
+                                                                        "product_id": 00}))])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text('Please choose :', reply_markup=reply_markup)
 
 
-def echo(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
+def button(update, context):
+    query = update.callback_query
+    ids = json.loads(query.data)
+    category_id = ids['category_id']
+    product_id = ids['product_id']
+    keyboard = []
+
+    products = menu[category_id]['products']
+    for product_id in products.keys():
+        product = products[product_id]
+        keyboard.append([InlineKeyboardButton(product['name'] + " " + product['price'], callback_data=str(product_id))])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.edit_message_text('Select desired food in ' + menu[category_id]['category'] + ":", reply_markup=reply_markup)
 
 
-def caps(update, context):
-    text_caps = ' '.join(context.args).upper()
-    context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
+def help(update, context):
+    update.message.reply_text("Use /start to test this bot.")
 
 
-def inline_caps(update, context):
-    query = update.inline_query.query
-    if not query:
-        return
-    results = list()
-    results.append(
-        InlineQueryResultArticle(
-            id=query.upper(),
-            title='Caps',
-            input_message_content=InputTextMessageContent(query.upper())
-        )
-    )
-    context.bot.answer_inline_query(update.inline_query.id, results)
+def error(update, context):
+    """Log Errors caused by Updates."""
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
 
 
-def unknown(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Ja das weiß ich jetzt auch nicht!")
+def main():
+    # load dotenv as environment   variable
+    dotenv_path = join(dirname(__file__), '.env')
+    load_dotenv(dotenv_path)
+    # Create the Updater and pass it your bot's token.
+    # Make sure to set use_context=True to use the new context based callbacks
+    # Post version 12 this will no longer be necessary
+    updater = Updater(os.environ.get("BOT_API_TOKEN"), use_context=True)
+
+    updater.dispatcher.add_handler(CommandHandler('start', start))
+    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    updater.dispatcher.add_handler(CommandHandler('help', help))
+    updater.dispatcher.add_error_handler(error)
+
+    # Start the Bot
+    updater.start_polling()
+
+    # Run the bot until the user presses Ctrl-C or the process receives SIGINT,
+    # SIGTERM or SIGABRT
+    updater.idle()
 
 
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler)
-
-caps_handler = CommandHandler('caps', caps)
-dispatcher.add_handler(caps_handler)
-
-inline_caps_handler = InlineQueryHandler(inline_caps)
-dispatcher.add_handler(inline_caps_handler)
-
-unknown_handler = MessageHandler(Filters.command, unknown)
-dispatcher.add_handler(unknown_handler)
-
-echo_handler = MessageHandler(Filters.text, echo)
-dispatcher.add_handler(echo_handler)
-
-updater.start_polling()
+if __name__ == '__main__':
+    main()
