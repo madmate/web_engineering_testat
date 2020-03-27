@@ -22,9 +22,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 url = 'https://www.izmir-kebap-friedrichshafen.de'
-print(get_menu(url))
 menu = json.loads(get_menu(url))
-print(menu)
+basket = {}
 
 
 def start(update, context):
@@ -46,14 +45,28 @@ def button(update, context):
     product_id = ids['product_id']
     keyboard = []
 
-    products = menu[category_id]['products']
-    for product_id in products.keys():
-        product = products[product_id]
-        keyboard.append([InlineKeyboardButton(product['name'] + " " + product['price'], callback_data=str(product_id))])
+    if int(product_id) == 0:
+        products = menu[category_id]['products']
+        for product_id in products.keys():
+            product = products[product_id]
+            keyboard.append(
+                [InlineKeyboardButton(product['name'] + " " + product['price'], callback_data=str(product_id))])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-    query.edit_message_text('Select desired food in ' + menu[category_id]['category'] + ":", reply_markup=reply_markup)
+        query.edit_message_text('Select desired food in ' + menu[category_id]['category'] + ":",
+                                reply_markup=reply_markup)
+    else:
+        group_id = update.message.chat.id
+        user = update.message.from_user
+        print(group_id)
+        print(user)
+        if product_id in basket[group_id][user.id]:
+            basket[group_id][user.id][product_id] += 1
+        else:
+            basket[group_id][user.id][product_id] = 1
+
+        print(basket)
 
 
 def help(update, context):
