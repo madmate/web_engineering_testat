@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 url = 'https://www.izmir-kebap-friedrichshafen.de'
 menu = json.loads(get_menu(url))
-print(menu)
 basket = {}
 
 ONE, TWO, THREE, FOUR, FIVE = range(5)
@@ -76,38 +75,34 @@ def show_category(update, context):
 
 
 def add_to_basket(update, context):
-    print(update)
     query = update.callback_query
     bot = context.bot
     ids = json.loads(query.data)
     category_id = ids['category_id']
     product_id = ids['product_id']
 
-    group_id = query.message.chat_id
-    print(group_id)
+    chat_id = update.effective_chat.id
     user = update.effective_user
-    print(user)
-    if group_id in basket:
-        print(1)
-        if user.id in basket[group_id]:
-            print(2)
-            if product_id in basket[group_id][user.id]:
-                print(3)
-                basket[group_id][user.id][product_id] += 1
+    if chat_id in basket:
+        if user.id in basket[chat_id]:
+            if category_id in basket[chat_id][user.id]:
+                if product_id in basket[chat_id][user.id][category_id]:
+                    basket[chat_id][user.id][category_id][product_id] += 1
+                else:
+                    basket[chat_id][user.id][category_id][product_id] = 1
             else:
-                basket[group_id][user.id][product_id] = 1
+                basket[chat_id][user.id][category_id] = {product_id: 1}
         else:
-            basket[group_id][user.id] = {product_id: 1}
+            basket[chat_id][user.id] = {category_id: {product_id: 1}}
     else:
-        print(4)
-        basket[group_id] = {user.id: {product_id: 1}}
-
-    print(basket)
+        basket[chat_id] = {user.id: {category_id: {product_id: 1}}}
 
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Added ' + menu[category_id]['products'][product_id][
                               'name'] + ' to your basket!')
+
+    return ConversationHandler.END
 
 
 def remove_from_basket(update, context):
