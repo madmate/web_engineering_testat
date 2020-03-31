@@ -20,7 +20,7 @@ def get_menu(url):
         category_name = category.find("h3", attrs={"class": "category"}).text
         category_item_html = category.find_all("a", attrs={"class": "addtobasket"})
         for item in category_item_html:
-            price = item.find("span", attrs={"class": "price"}).text
+            price = item.find("span", attrs={"class": "price"}).text.replace(',', ".")
             item_name = item.find("b", attrs={"itemprop": "name"}).text
 
             products[product_id] = {

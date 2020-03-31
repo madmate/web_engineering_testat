@@ -29,7 +29,7 @@ all_user_data = dict()
 
 ONE, TWO, THREE, FOUR, FIVE = range(5)
 
-FIRST, SECOND, THIRD = range(3)
+FIRST, SECOND, THIRD, FOURTH = range(4)
 
 
 def show_categories(update, context):
@@ -104,13 +104,73 @@ def add_to_basket(update, context):
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Added ' + menu[category_id]['products'][product_id][
-                              'name'] + ' to your basket!')
+                              'name'] + ' to your order!')
 
     return ConversationHandler.END
 
 
+def basket_inline_keyboard(update, context):
+    bot = context.bot
+    query = update.callback_query
+
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+
+    user_basket = basket[chat_id][user.id]
+    keyboard = []
+
+    for category_id in user_basket.keys():
+        for product_id in user_basket[category_id].keys():
+            amount = user_basket[category_id][product_id]
+            name = menu[category_id]['products'][product_id]['name']
+            price = menu[category_id]['products'][product_id]['price']
+
+            keyboard.append([InlineKeyboardButton(str(amount) + "x " + name + " " + price,
+                                                  callback_data=json.dumps({"category_id": category_id,
+                                                                            "product_id": product_id}))])
+
+    keyboard.append([InlineKeyboardButton("Remove all products",
+                                          callback_data=json.dumps({"category_id": category_id,
+                                                                    "product_id": -1}))])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text="Select product to remove from basket:",
+                          reply_markup=reply_markup)
+
+    return FOURTH
+
+
 def remove_from_basket(update, context):
-    return FIRST
+    bot = context.bot
+    query = update.callback_query
+
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    ids = json.loads(query.data)
+    category_id = ids['category_id']
+    product_id = ids['product_id']
+
+    if product_id == -1:
+        del basket[chat_id][user_id]
+    else:
+        if basket[chat_id][user_id][category_id][product_id] > 1:
+            basket[chat_id][user_id][category_id][product_id] -= 1
+        else:
+            del basket[chat_id][user_id][category_id][product_id]
+            if not bool(basket[chat_id][user_id][category_id]):
+                del basket[chat_id][user_id][category_id]
+
+    print("los")
+    print(basket[chat_id][user_id])
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text="Removed " + menu[category_id]['products'][product_id]['name'] +
+                               "from order. Your order: \n" +
+                               str_user_basket(basket[chat_id][user_id])['message'])
+
+    return ConversationHandler.END
 
 
 def show_basket(update, context):
@@ -120,7 +180,7 @@ def show_basket(update, context):
     chat_id = update.effective_chat.id
     user = update.effective_user
 
-    message_and_price = user_basket(basket[chat_id][user.id])
+    message_and_price = str_user_basket(basket[chat_id][user.id])
 
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
@@ -129,7 +189,7 @@ def show_basket(update, context):
     return ConversationHandler.END
 
 
-def user_basket(basket_from_user):
+def str_user_basket(basket_from_user):
     price_basket = 0.0
     message = ""
     print(basket_from_user)
@@ -138,7 +198,7 @@ def user_basket(basket_from_user):
         for product_id in basket_from_user[category_id].keys():
             amount = basket_from_user[category_id][product_id]
             name = menu[category_id]['products'][product_id]['name']
-            price = float(menu[category_id]['products'][product_id]['price'].replace(' €', '').replace(',', '.'))
+            price = float(menu[category_id]['products'][product_id]['price'].replace(' €', ''))
 
             price_basket += price * amount
             print(price_basket)
@@ -161,7 +221,7 @@ def show_group_basket(update, context):
 
         message = message + str(user.username) + " aka " + str(user.first_name) + ":\n"
         print(message)
-        message_and_price = user_basket(basket[chat_id][user_id])
+        message_and_price = str_user_basket(basket[chat_id][user_id])
         chat_sum += message_and_price['price']
         message = message + message_and_price['message']
 
@@ -179,17 +239,28 @@ def finish(update, context):
 
 
 def clear_all(update, context):
-    return FIRST
+    bot = context.bot
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+
+    if chat_id in basket:
+        del basket[chat_id]
+
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text="Deleted all orders for this chat!")
+
+    return ConversationHandler.END
 
 
 def start(update, context):
     put_in_all_user_data(update.effective_user)
 
-    keyboard = [[InlineKeyboardButton("Add to Basket", callback_data=str(ONE))],
-                [InlineKeyboardButton("Remove from Basket", callback_data=str(TWO))],
-                [InlineKeyboardButton("Your Order", callback_data=str(THREE))],
-                [InlineKeyboardButton("Group Order", callback_data=str(FOUR))],
-                [InlineKeyboardButton("Finish", callback_data=str(FIVE))]]
+    keyboard = [[InlineKeyboardButton("add to order", callback_data=str(ONE))],
+                [InlineKeyboardButton("remove from order", callback_data=str(TWO))],
+                [InlineKeyboardButton("your order", callback_data=str(THREE))],
+                [InlineKeyboardButton("group order", callback_data=str(FOUR))],
+                [InlineKeyboardButton("finish", callback_data=str(FIVE))]]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -224,12 +295,13 @@ def main():
         entry_points=[CommandHandler('start', start)],
         states={
             FIRST: [CallbackQueryHandler(show_categories, pattern='^' + str(ONE) + '$'),
-                    CallbackQueryHandler(remove_from_basket, pattern='^' + str(TWO) + '$'),
+                    CallbackQueryHandler(basket_inline_keyboard, pattern='^' + str(TWO) + '$'),
                     CallbackQueryHandler(show_basket, pattern='^' + str(THREE) + '$'),
                     CallbackQueryHandler(show_group_basket, pattern='^' + str(FOUR) + '$'),
                     CallbackQueryHandler(finish, pattern='^' + str(FIVE) + '$')],
             SECOND: [CallbackQueryHandler(show_category)],
-            THIRD: [CallbackQueryHandler(add_to_basket)]
+            THIRD: [CallbackQueryHandler(add_to_basket)],
+            FOURTH: [CallbackQueryHandler(remove_from_basket)]
         },
         fallbacks=[CommandHandler('start', start)]
     )
