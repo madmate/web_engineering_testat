@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 url = 'https://www.izmir-kebap-friedrichshafen.de'
 menu = json.loads(get_menu(url))
 print(menu)
-basket = {}
+basket = dict()
+all_user_data = dict()
 
 ONE, TWO, THREE, FOUR, FIVE = range(5)
 
@@ -95,13 +96,9 @@ def add_to_basket(update, context):
             else:
                 basket[chat_id][user.id][category_id] = {product_id: 1}
         else:
-            basket[chat_id][user.id] = {'username': user.username,
-                                        'first_name': user.first_name,
-                                        category_id: {product_id: 1}}
+            basket[chat_id][user.id] = {category_id: {product_id: 1}}
     else:
-        basket[chat_id] = {user.id: {'username': user.username,
-                                     'first_name': user.first_name,
-                                     category_id: {product_id: 1}}}
+        basket[chat_id] = {user.id: {category_id: {product_id: 1}}}
 
     print(basket)
     bot.edit_message_text(chat_id=query.message.chat_id,
@@ -132,28 +129,49 @@ def show_basket(update, context):
     return ConversationHandler.END
 
 
-def user_basket(basket):
+def user_basket(basket_from_user):
     price_basket = 0.0
     message = ""
+    print(basket_from_user)
 
-    for category_id in basket.keys():
-        for product_id in basket[category_id].keys():
-            amount = basket[category_id][product_id]
+    for category_id in basket_from_user.keys():
+        for product_id in basket_from_user[category_id].keys():
+            amount = basket_from_user[category_id][product_id]
             name = menu[category_id]['products'][product_id]['name']
-            price_str = menu[category_id]['products'][product_id]['price']
-            price = float(price_str.replace(' €', '').replace(',', '.'))
+            price = float(menu[category_id]['products'][product_id]['price'].replace(' €', '').replace(',', '.'))
 
             price_basket += price * amount
             print(price_basket)
-            message = message + str(amount) + "x " + name + " " + price_str + "\n"
+            message = message + str(amount) + "x " + name + " " + str(f'{price:.2f}') + " €" + "\n"
 
-    message = message + "Sum: " + str(price_basket) + " €"
+    message = message + "Sum: " + str(f'{price_basket:.2f}') + " €\n"
 
     return {'message': message, 'price': price_basket}
 
 
 def show_group_basket(update, context):
-    return FIRST
+    bot = context.bot
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+    message = ''
+    chat_sum = 0.0
+
+    for user_id in basket[chat_id].keys():
+        user = all_user_data[user_id]
+
+        message = message + str(user.username) + " aka " + str(user.first_name) + ":\n"
+        print(message)
+        message_and_price = user_basket(basket[chat_id][user_id])
+        chat_sum += message_and_price['price']
+        message = message + message_and_price['message']
+
+    message = message + "Chat Sum: " + str(f'{chat_sum:.2f}') + " €"
+
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text=message)
+
+    return ConversationHandler.END
 
 
 def finish(update, context):
@@ -165,6 +183,8 @@ def clear_all(update, context):
 
 
 def start(update, context):
+    put_in_all_user_data(update.effective_user)
+
     keyboard = [[InlineKeyboardButton("Add to Basket", callback_data=str(ONE))],
                 [InlineKeyboardButton("Remove from Basket", callback_data=str(TWO))],
                 [InlineKeyboardButton("Your Order", callback_data=str(THREE))],
@@ -176,6 +196,10 @@ def start(update, context):
     update.message.reply_text("What do you want to do?", reply_markup=reply_markup)
 
     return FIRST
+
+
+def put_in_all_user_data(user):
+    all_user_data[user.id] = user
 
 
 def help(update, context):
