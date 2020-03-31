@@ -84,6 +84,7 @@ def add_to_basket(update, context):
 
     chat_id = update.effective_chat.id
     user = update.effective_user
+    print(user)
     if chat_id in basket:
         if user.id in basket[chat_id]:
             if category_id in basket[chat_id][user.id]:
@@ -94,10 +95,15 @@ def add_to_basket(update, context):
             else:
                 basket[chat_id][user.id][category_id] = {product_id: 1}
         else:
-            basket[chat_id][user.id] = {category_id: {product_id: 1}}
+            basket[chat_id][user.id] = {'username': user.username,
+                                        'first_name': user.first_name,
+                                        category_id: {product_id: 1}}
     else:
-        basket[chat_id] = {user.id: {category_id: {product_id: 1}}}
+        basket[chat_id] = {user.id: {'username': user.username,
+                                     'first_name': user.first_name,
+                                     category_id: {product_id: 1}}}
 
+    print(basket)
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Added ' + menu[category_id]['products'][product_id][
