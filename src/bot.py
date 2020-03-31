@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 url = 'https://www.izmir-kebap-friedrichshafen.de'
 menu = json.loads(get_menu(url))
+print(menu)
 basket = {}
 
 ONE, TWO, THREE, FOUR, FIVE = range(5)
@@ -110,7 +111,39 @@ def remove_from_basket(update, context):
 
 
 def show_basket(update, context):
-    return FIRST
+    bot = context.bot
+    query = update.callback_query
+
+    chat_id = update.effective_chat.id
+    user = update.effective_user
+
+    message_and_price = user_basket(basket[chat_id][user.id])
+
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text=message_and_price['message'])
+
+    return ConversationHandler.END
+
+
+def user_basket(basket):
+    price_basket = 0.0
+    message = ""
+
+    for category_id in basket.keys():
+        for product_id in basket[category_id].keys():
+            amount = basket[category_id][product_id]
+            name = menu[category_id]['products'][product_id]['name']
+            price_str = menu[category_id]['products'][product_id]['price']
+            price = float(price_str.replace(' €', '').replace(',', '.'))
+
+            price_basket += price * amount
+            print(price_basket)
+            message = message + str(amount) + "x " + name + " " + price_str + "\n"
+
+    message = message + "Sum: " + str(price_basket) + " €"
+
+    return {'message': message, 'price': price_basket}
 
 
 def show_group_basket(update, context):
