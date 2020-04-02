@@ -29,7 +29,7 @@ all_user_data = dict()
 
 ONE, TWO, THREE, FOUR, FIVE, SIX = range(6)
 
-FIRST, SECOND, THIRD, FOURTH, FIFTH = range(5)
+FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH = range(6)
 
 
 def show_categories(update, context):
@@ -237,10 +237,7 @@ def str_user_cart(chat_id, user_id):
     return {'message': message, 'price': price_cart}
 
 
-def show_group_cart(update, context):
-    bot = context.bot
-    query = update.callback_query
-    chat_id = update.effective_chat.id
+def str_group_cart(chat_id):
     message = ''
     chat_sum = 0.0
 
@@ -258,15 +255,52 @@ def show_group_cart(update, context):
     else:
         message = "No orders made in this group chat!"
 
+    return message
+
+
+def show_group_cart(update, context):
+    bot = context.bot
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
-                          text=message)
+                          text=str_group_cart(chat_id))
 
     return ConversationHandler.END
 
 
+def finish_question(update, context):
+    bot = context.bot
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+    if chat_id in cart.keys():
+        keyboard = [[InlineKeyboardButton("yes", callback_data="yes"), InlineKeyboardButton("no", callback_data="no")],
+                    [InlineKeyboardButton("no, back to menu please", callback_data="menu")]]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        bot.edit_message_text(chat_id=query.message.chat_id,
+                              message_id=query.message.message_id,
+                              text="Are you sure you want to finalize the order for this chat?",
+                              reply_markup=reply_markup)
+        return SIXTH
+
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text="No orders made in this group chat!")
+    return ConversationHandler.END
+
+
 def finish(update, context):
-    return FIRST
+    bot = context.bot
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+    message = "Finalized your order. Pay and order at Izmir based on the following message:\n" + str_group_cart(chat_id)
+    del cart[chat_id]
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text=message)
+    return ConversationHandler.END
 
 
 def clear_all_question(update, context):
@@ -360,12 +394,13 @@ def main():
                     CallbackQueryHandler(cart_inline_keyboard, pattern='^' + str(TWO) + '$'),
                     CallbackQueryHandler(show_cart, pattern='^' + str(THREE) + '$'),
                     CallbackQueryHandler(show_group_cart, pattern='^' + str(FOUR) + '$'),
-                    CallbackQueryHandler(finish, pattern='^' + str(FIVE) + '$'),
+                    CallbackQueryHandler(finish_question, pattern='^' + str(FIVE) + '$'),
                     CallbackQueryHandler(clear_all_question, pattern='^' + str(SIX) + '$')],
             SECOND: [CallbackQueryHandler(show_category)],
             THIRD: [CallbackQueryHandler(add_to_cart)],
             FOURTH: [CallbackQueryHandler(remove_from_cart)],
-            FIFTH: [CallbackQueryHandler(clear_all)]
+            FIFTH: [CallbackQueryHandler(clear_all)],
+            SIXTH: [CallbackQueryHandler(finish)]
         },
         fallbacks=[CommandHandler('start', start)]
     )
