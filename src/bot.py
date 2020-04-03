@@ -29,7 +29,7 @@ all_user_data = dict()
 
 ONE, TWO, THREE, FOUR, FIVE, SIX = range(6)
 
-FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH = range(6)
+FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH, SEVENTH = range(7)
 
 
 def show_categories(update, context):
@@ -79,6 +79,8 @@ def show_category(update, context):
 
 def add_to_cart(update, context):
     query = update.callback_query
+    print(query)
+    print(query.message.text)
     bot = context.bot
     ids = json.loads(query.data)
     category_id = ids['category_id']
@@ -102,12 +104,17 @@ def add_to_cart(update, context):
         cart[chat_id] = {user.id: {category_id: {product_id: 1}}}
 
     print(cart)
+
+    keyboard = [[InlineKeyboardButton("order more", callback_data=str(TWO))],
+                [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
+
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Added ' + menu[category_id]['products'][product_id][
-                              'name'] + ' to your order!')
+                              'name'] + ' to your order!',
+                          reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ConversationHandler.END
+    return SEVENTH
 
 
 def cart_inline_keyboard(update, context):
@@ -146,10 +153,12 @@ def cart_inline_keyboard(update, context):
                                   reply_markup=reply_markup)
             return FOURTH
 
+    keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
-                          text="No products in your cart!")
-    return ConversationHandler.END
+                          text="No products in your cart!",
+                          reply_markup=InlineKeyboardMarkup(keyboard))
+    return SEVENTH
 
 
 def remove_from_cart(update, context):
@@ -191,11 +200,15 @@ def remove_from_cart(update, context):
                   str_user_cart(chat_id, user_id)['message']
 
     print(cart)
+
+    keyboard = [[InlineKeyboardButton("remove more", callback_data=str(THREE))],
+                [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
+
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
-                          text=message)
-
-    return ConversationHandler.END
+                          text=message,
+                          reply_markup=InlineKeyboardMarkup(keyboard))
+    return SEVENTH
 
 
 def show_cart(update, context):
@@ -207,11 +220,13 @@ def show_cart(update, context):
 
     message_and_price = str_user_cart(chat_id, user.id)
 
+    keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
-                          text=message_and_price['message'])
+                          text=message_and_price['message'],
+                          reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ConversationHandler.END
+    return SEVENTH
 
 
 def str_user_cart(chat_id, user_id):
@@ -263,11 +278,13 @@ def show_group_cart(update, context):
     query = update.callback_query
     chat_id = update.effective_chat.id
 
+    keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
-                          text=str_group_cart(chat_id))
+                          text=str_group_cart(chat_id),
+                          reply_markup=InlineKeyboardMarkup(keyboard))
 
-    return ConversationHandler.END
+    return SEVENTH
 
 
 def finish_question(update, context):
@@ -356,6 +373,17 @@ def start_menu():
     return InlineKeyboardMarkup(keyboard)
 
 
+def start_over(update, context):
+    bot = context.bot
+    query = update.callback_query
+    reply_markup = start_menu()
+    bot.edit_message_text(chat_id=query.message.chat_id,
+                          message_id=query.message.message_id,
+                          text="What do you want to do?",
+                          reply_markup=reply_markup)
+    return FIRST
+
+
 def start(update, context):
     put_in_all_user_data(update.effective_user)
 
@@ -400,7 +428,11 @@ def main():
             THIRD: [CallbackQueryHandler(add_to_cart)],
             FOURTH: [CallbackQueryHandler(remove_from_cart)],
             FIFTH: [CallbackQueryHandler(clear_all)],
-            SIXTH: [CallbackQueryHandler(finish)]
+            SIXTH: [CallbackQueryHandler(finish)],
+            SEVENTH: [CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
+                      CallbackQueryHandler(show_categories, pattern='^' + str(TWO) + '$'),
+                      CallbackQueryHandler(cart_inline_keyboard, pattern='^' + str(THREE) + '$')]
+
         },
         fallbacks=[CommandHandler('start', start)]
     )
