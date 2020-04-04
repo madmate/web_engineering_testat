@@ -9,10 +9,12 @@ def get_menu(url):
     Parser for delivery services powered by lieferando.de.
     Only tested with https://www.izmir-kebap-friedrichshafen.de. Downloads the html and extracts all
     categories and their products. Put's them into python dictionary with unique ids for categories and products
+
     :param url: lieferando.de powered site like https://www.izmir-kebap-friedrichshafen.de
     :type url: str
-    :return JSON Object of menu
-    :rtype str of JSON Object
+
+    :return: JSON Object of menu
+    :rtype: str of JSON Object
     """
     # requests html of url
     html_content = requests.get(url).text

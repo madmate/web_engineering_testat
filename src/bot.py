@@ -13,14 +13,19 @@ from dotenv import load_dotenv
 
 from src.parser import get_menu
 
+# basic logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# url of menu from delivery service
 url = 'https://www.izmir-kebap-friedrichshafen.de'
+# requests menu in json from parser und loads it as Python Dictionary
 menu = json.loads(get_menu(url))
 
+# storage for all orders made
 cart = dict()
+# storage for user data from every user which writes with the bot
 all_user_data = dict()
 # callback_data as pattern for the ConversationHandler
 ONE, TWO, THREE, FOUR, FIVE, SIX = range(6)
@@ -347,6 +352,7 @@ def start_menu():
 
 
 def start_over(update, context):
+    """The same as :func:`start` while editing the last message send from bot instead of replying"""
     bot = context.bot
     query = update.callback_query
     reply_markup = start_menu()
@@ -358,20 +364,29 @@ def start_over(update, context):
 
 
 def start(update, context):
+    """Entry Point function replying the conversation menu"""
+    # store user data
     put_in_all_user_data(update.effective_user)
-
+    # getting the start menu InlineKeyboardMarkup
     reply_markup = start_menu()
+    # reply with menu markup
     update.message.reply_text("What do you want to do?", reply_markup=reply_markup)
-
+    # telling the ConversationHandler we are in the FIRST Stage
     return FIRST
 
 
-def put_in_all_user_data(user):
+def put_in_all_user_data(user: dict):
+    """stores user dictionary under the user id as key in dictionary
+
+    :param user: dictionary containing user information like first_name, username, id
+    :type user: object
+    """
     all_user_data[user.id] = user
 
 
 def help(update, context):
-    update.message.reply_text("Use /start to test this bot.")
+    """replies with help message in chat"""
+    update.message.reply_text("Use /start to order food at Izmir Kebab")
 
 
 def error(update, context):
@@ -380,14 +395,17 @@ def error(update, context):
 
 
 def main():
-    # load dotenv as environment   variable
+    """main function
+
+    loads the BOT_API_TOKEN from denenv, adds all handlers to the Updater and starts the bot"""
+    # load dotenv as environment variable
     dotenv_path = join(dirname(__file__), '.env')
     load_dotenv(dotenv_path)
     # Create the Updater and pass it your bot's token.
-    # Make sure to set use_context=True to use the new context based callbacks
-    # Post version 12 this will no longer be necessary
+    # getting bot api token from environment variable
     updater = Updater(os.environ.get("BOT_API_TOKEN"), use_context=True)
 
+    # creating the ConversationHandler with entrypoints and multiple stages
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -405,11 +423,11 @@ def main():
             SEVENTH: [CallbackQueryHandler(start_over, pattern='^' + str(ONE) + '$'),
                       CallbackQueryHandler(show_categories, pattern='^' + str(TWO) + '$'),
                       CallbackQueryHandler(cart_inline_keyboard, pattern='^' + str(THREE) + '$')]
-
         },
         fallbacks=[CommandHandler('start', start)]
     )
 
+    # adding handlers to the bot
     updater.dispatcher.add_handler(conv_handler)
     updater.dispatcher.add_handler(CommandHandler('help', help))
     updater.dispatcher.add_error_handler(error)
