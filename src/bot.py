@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 url = 'https://www.izmir-kebap-friedrichshafen.de'
 menu = json.loads(get_menu(url))
-print(menu)
+
 cart = dict()
 all_user_data = dict()
 # callback_data as pattern for the ConversationHandler
@@ -29,7 +29,6 @@ FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH, SEVENTH = range(7)
 
 
 def show_categories(update, context):
-    print("test")
     query = update.callback_query
     bot = context.bot
 
@@ -75,8 +74,6 @@ def show_category(update, context):
 
 def add_to_cart(update, context):
     query = update.callback_query
-    print(query)
-    print(query.message.text)
     bot = context.bot
     ids = json.loads(query.data)
     category_id = ids['category_id']
@@ -84,7 +81,6 @@ def add_to_cart(update, context):
 
     chat_id = update.effective_chat.id
     user = update.effective_user
-    print(user)
     if chat_id in cart:
         if user.id in cart[chat_id]:
             if category_id in cart[chat_id][user.id]:
@@ -98,8 +94,6 @@ def add_to_cart(update, context):
             cart[chat_id][user.id] = {category_id: {product_id: 1}}
     else:
         cart[chat_id] = {user.id: {category_id: {product_id: 1}}}
-
-    print(cart)
 
     keyboard = [[InlineKeyboardButton("order more", callback_data=str(TWO))],
                 [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
@@ -120,12 +114,8 @@ def cart_inline_keyboard(update, context):
     chat_id = update.effective_chat.id
     user = update.effective_user
 
-    print(1)
-    print(cart)
     if chat_id in cart.keys():
-        print(2)
         if user.id in cart[chat_id].keys():
-            print(3)
             user_cart = cart[chat_id][user.id]
             keyboard = []
 
@@ -169,12 +159,9 @@ def remove_from_cart(update, context):
     product_id = ids['product_id']
 
     if product_id == -1:
-        print(cart)
         del cart[chat_id][user_id]
-        print(cart)
         if not bool(cart[chat_id]):
             del cart[chat_id]
-        print(cart)
         message = "All products removed from your cart!"
     else:
         if cart[chat_id][user_id][category_id][product_id] > 1:
@@ -182,20 +169,14 @@ def remove_from_cart(update, context):
         else:
             del cart[chat_id][user_id][category_id][product_id]
             if not bool(cart[chat_id][user_id][category_id]):
-                print(cart)
                 del cart[chat_id][user_id][category_id]
             if not bool(cart[chat_id][user_id]):
-                print(cart)
                 del cart[chat_id][user_id]
             if not bool(cart[chat_id]):
-                print(cart)
                 del cart[chat_id]
-        print(cart)
         message = "Removed " + menu[category_id]['products'][product_id]['name'] + "from your cart. Your " \
                                                                                    "cart: \n" + \
                   str_user_cart(chat_id, user_id)['message']
-
-    print(cart)
 
     keyboard = [[InlineKeyboardButton("remove more", callback_data=str(THREE))],
                 [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
@@ -239,7 +220,6 @@ def str_user_cart(chat_id, user_id):
                     price = float(menu[category_id]['products'][product_id]['price'].replace(' €', ''))
 
                     price_cart += price * amount
-                    print(price_cart)
                     message = message + str(amount) + "x " + name + " " + str(f'{price:.2f}') + " €" + "\n"
 
             message = message + "Sum: " + str(f'{price_cart:.2f}') + " €\n"
@@ -257,7 +237,6 @@ def str_group_cart(chat_id):
             user = all_user_data[user_id]
 
             message = message + str(user.username) + " aka " + str(user.first_name) + ":\n"
-            print(message)
             message_and_price = str_user_cart(chat_id, user_id)
             chat_sum += message_and_price['price']
             message = message + message_and_price['message']
@@ -334,8 +313,6 @@ def clear_all(update, context):
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
-
-    print(query.data)
 
     if query.data == "yes":
         if chat_id in cart:
