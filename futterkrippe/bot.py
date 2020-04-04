@@ -11,7 +11,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 from os.path import join, dirname
 from dotenv import load_dotenv
 
-from src.parser import get_menu
+from futterkrippe.parser import get_menu
 
 # basic logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
