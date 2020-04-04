@@ -1,9 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# This program is dedicated to the public domain under the CC0 license.
-
 """
-Basic example for a bot that uses inline keyboards.
+Prototype Chatbot for a telegram group based delivery service order
 """
 import json
 import logging
@@ -26,9 +22,9 @@ menu = json.loads(get_menu(url))
 print(menu)
 cart = dict()
 all_user_data = dict()
-
+# callback_data as pattern for the ConversationHandler
 ONE, TWO, THREE, FOUR, FIVE, SIX = range(6)
-
+# stages for the ConversationHandler
 FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH, SEVENTH = range(7)
 
 
