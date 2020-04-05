@@ -212,40 +212,64 @@ def show_cart(update, context):
 
 
 def str_user_cart(chat_id, user_id):
+    """user order to string
+
+    returns dictionary containing a message string with all products ordered from user or
+    notification that the user ordered nothing, the dictionary also contains as price float
+
+    :param chat_id: unique id of chat the message came from
+    :type chat_id: str
+    :param user_id: unique id of user the message came from
+    :type user_id: str
+
+    :return: items and full price of user card
+    :rtype: dictionary with message and price"""
     price_cart = 0.0
     message = ""
 
+    # checks if chat_id exists as key
     if chat_id in cart.keys():
+        # checks if user_id exists as key
         if user_id in cart[chat_id].keys():
             cart_from_user = cart[chat_id][user_id]
+            # iterating over all categories the user ordered from
             for category_id in cart_from_user.keys():
+                # iterating over all products the user ordered
                 for product_id in cart_from_user[category_id].keys():
                     amount = cart_from_user[category_id][product_id]
                     name = menu[category_id]['products'][product_id]['name']
                     price = float(menu[category_id]['products'][product_id]['price'].replace(' €', ''))
-
+                    # adds price to full price the user needs to pay
                     price_cart += price * amount
+                    # adding new row with all information the user need for his ordered product
                     message = message + str(amount) + "x " + name + " " + str(f'{price:.2f}') + " €" + "\n"
-
+            # full price the user needs to pay
             message = message + "Sum: " + str(f'{price_cart:.2f}') + " €\n"
             return {'message': message, 'price': price_cart}
     message = "no items in cart\n"
     return {'message': message, 'price': price_cart}
 
 
-def str_group_cart(chat_id):
+def str_group_cart(chat_id: str):
+    """group order to string
+
+    :param chat_id: unique id of chat the message came from
+    :type chat_id: str
+
+    :return: group order or message when no orders where made
+    :rtype: str"""
     message = ''
     chat_sum = 0.0
-
+    # check if any orders where made
     if chat_id in cart.keys():
+        # iterates over every card of user in that chat and adds it to message
         for user_id in cart[chat_id].keys():
             user = all_user_data[user_id]
-
             message = message + str(user.username) + " aka " + str(user.first_name) + ":\n"
             message_and_price = str_user_cart(chat_id, user_id)
             chat_sum += message_and_price['price']
             message = message + message_and_price['message']
-
+        # adds formatted chat_sum with precision of two
         message = message + "Chat Sum: " + str(f'{chat_sum:.2f}') + " €"
     else:
         message = "No orders made in this group chat!"
@@ -254,24 +278,28 @@ def str_group_cart(chat_id):
 
 
 def show_group_cart(update, context):
+    """replies the group chat cart to chat"""
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
-
+    # button for the option to go back to start menu
     keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text=str_group_cart(chat_id),
                           reply_markup=InlineKeyboardMarkup(keyboard))
-
+    # notifies the ConversationHandler of stage SEVEN
     return SEVENTH
 
 
 def finish_question(update, context):
+    """checks if orders where made and asks the user if he wants to finalize the order"""
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
+    # checks if any orders where made in that chat
     if chat_id in cart.keys():
+        # question keyboard
         keyboard = [[InlineKeyboardButton("yes", callback_data="yes"), InlineKeyboardButton("no", callback_data="no")],
                     [InlineKeyboardButton("no, back to menu please", callback_data="menu")]]
 
@@ -285,22 +313,46 @@ def finish_question(update, context):
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text="No orders made in this group chat!")
+    # notifies the ConversationHandler the Conversation ended
     return ConversationHandler.END
 
 
 def finish(update, context):
+    """handles response of :func:`finish_question`"""
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
-    message = "Finalized your order. Pay and order at Izmir based on the following message:\n" + str_group_cart(chat_id)
-    del cart[chat_id]
-    bot.edit_message_text(chat_id=query.message.chat_id,
-                          message_id=query.message.message_id,
-                          text=message)
-    return ConversationHandler.END
+    # replies group order and deletes all orders made in chat from cart
+    if query.data == "yes":
+        message = "Finalized your order. Pay and order at Izmir based on the following message:\n" + \
+                  str_group_cart(chat_id)
+        del cart[chat_id]
+        bot.edit_message_text(chat_id=query.message.chat_id,
+                              message_id=query.message.message_id,
+                              text=message)
+        # notifies the ConversationHandler the Conversation ended
+        return ConversationHandler.END
+    # last message ist edited and nothing changed because the user decided otherwise
+    if query.data == "no":
+        bot.edit_message_text(chat_id=query.message.chat_id,
+                              message_id=query.message.message_id,
+                              text="No order made!")
+        # notifies the ConversationHandler that the Conversation ended
+        return ConversationHandler.END
+    # shows start menu
+    if query.data == "menu":
+        bot.edit_message_text(chat_id=query.message.chat_id,
+                              message_id=query.message.message_id,
+                              text="What do you want to do?",
+                              reply_markup=get_start_menu())
+        # back to FIRST stage
+        return FIRST
 
 
 def clear_all_question(update, context):
+    """verification question
+
+    Asks if the user really wants to delete all orders made in this chat"""
     bot = context.bot
     query = update.callback_query
     keyboard = [[InlineKeyboardButton("yes", callback_data="yes"), InlineKeyboardButton("no", callback_data="no")],
@@ -315,32 +367,42 @@ def clear_all_question(update, context):
 
 
 def clear_all(update, context):
+    """handles response of :func:`clear_all_question`"""
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
 
+    # deletes key chat_id of cart dictionary if user wants to delete all orders from chat
     if query.data == "yes":
         if chat_id in cart:
             del cart[chat_id]
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="Deleted all orders for this chat!")
+        # notifies the ConversationHandler that the Conversation ended
         return ConversationHandler.END
+    # last message ist edited and nothing deleted because the user decided otherwise
     if query.data == "no":
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="Nothing changed!")
+        # notifies the ConversationHandler that the Conversation ended
         return ConversationHandler.END
+    # shows start menu
     if query.data == "menu":
-        reply_markup = start_menu()
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="What do you want to do?",
-                              reply_markup=reply_markup)
+                              reply_markup=get_start_menu())
+        # back to FIRST stage
         return FIRST
 
 
-def start_menu():
+def get_start_menu():
+    """returns the start menu
+
+    :return: start menu
+    :rtype: InlineKeyboardMarkup"""
     keyboard = [[InlineKeyboardButton("add food to cart", callback_data=str(ONE))],
                 [InlineKeyboardButton("remove food from cart", callback_data=str(TWO))],
                 [InlineKeyboardButton("your cart", callback_data=str(THREE))],
@@ -355,11 +417,12 @@ def start_over(update, context):
     """The same as :func:`start` while editing the last message send from bot instead of replying"""
     bot = context.bot
     query = update.callback_query
-    reply_markup = start_menu()
+    reply_markup = get_start_menu()
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text="What do you want to do?",
                           reply_markup=reply_markup)
+    # back to FIRST stage
     return FIRST
 
 
@@ -368,7 +431,7 @@ def start(update, context):
     # store user data
     put_in_all_user_data(update.effective_user)
     # getting the start menu InlineKeyboardMarkup
-    reply_markup = start_menu()
+    reply_markup = get_start_menu()
     # reply with menu markup
     update.message.reply_text("What do you want to do?", reply_markup=reply_markup)
     # telling the ConversationHandler we are in the FIRST Stage

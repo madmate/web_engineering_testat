@@ -3,7 +3,7 @@ import requests
 import json
 
 
-def get_menu(url):
+def get_menu(url: str):
     """Parses HTML menu into JSON
 
     Parser for delivery services powered by lieferando.de.
