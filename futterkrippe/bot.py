@@ -34,62 +34,83 @@ FIRST, SECOND, THIRD, FOURTH, FIFTH, SIXTH, SEVENTH = range(7)
 
 
 def show_categories(update, context):
+    """show all categories on menu as InlineKeyBoardButton
+
+    category id is given as callback_data"""
     query = update.callback_query
     bot = context.bot
 
     keyboard = []
+    # iterate over every category
     for category_id in menu.keys():
+        # add category to keyboard
         keyboard.append([InlineKeyboardButton(str(menu[category_id]['category']),
                                               callback_data=json.dumps({"category_id": category_id,
                                                                         "product_id": 0}))])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
+    # edits last message to keyboard with all categories
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Please choose :',
                           reply_markup=reply_markup)
-
+    # notify ConversationHandler of SECOND stage
     return SECOND
 
 
 def show_category(update, context):
+    """shows all product from one category
+
+    category is selected in :func:`show_categories` and given as callback_data"""
     query = update.callback_query
     bot = context.bot
+    # loads json received from callback_data into dictionary
     ids = json.loads(query.data)
     category_id = ids['category_id']
     keyboard = []
 
     products = menu[category_id]['products']
+    # iterates over all products in selected category
     for product_id in products.keys():
         product = products[product_id]
+        # add each product to keyboard with id information as callback_data
         keyboard.append([InlineKeyboardButton(product['name'] + " " + product['price'],
                                               callback_data=json.dumps({"category_id": category_id,
                                                                         "product_id": product_id}))])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-
+    # edits last message to keyboard with all products from category
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Select desired food in ' + menu[category_id]['category'] + ":",
                           reply_markup=reply_markup)
-
+    # notify ConversationHandler of THIRD stage
     return THIRD
 
 
 def add_to_cart(update, context):
+    """adds selected product to card
+
+    handles respones of :func:`show_category`"""
     query = update.callback_query
     bot = context.bot
+    # loads json received from callback_data into dictionary
     ids = json.loads(query.data)
     category_id = ids['category_id']
     product_id = ids['product_id']
 
     chat_id = update.effective_chat.id
     user = update.effective_user
+    # checks if chat already made an order
     if chat_id in cart:
+        # checks if user already made an order
         if user.id in cart[chat_id]:
+            # checks user already ordered from category
             if category_id in cart[chat_id][user.id]:
+                # checks if user already ordered product
                 if product_id in cart[chat_id][user.id][category_id]:
+                    # increase count how often product was ordered
                     cart[chat_id][user.id][category_id][product_id] += 1
                 else:
                     cart[chat_id][user.id][category_id][product_id] = 1
@@ -100,9 +121,11 @@ def add_to_cart(update, context):
     else:
         cart[chat_id] = {user.id: {category_id: {product_id: 1}}}
 
+    # option to order more or go back to start menu
     keyboard = [[InlineKeyboardButton("order more", callback_data=str(TWO))],
                 [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
 
+    # add last message text to product ordered
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text='Added ' + menu[category_id]['products'][product_id][
@@ -113,101 +136,128 @@ def add_to_cart(update, context):
 
 
 def cart_inline_keyboard(update, context):
+    """replies keyboard with all orders made by users and option to delete all"""
     bot = context.bot
     query = update.callback_query
 
     chat_id = update.effective_chat.id
     user = update.effective_user
 
+    # check if chat made any orders
     if chat_id in cart.keys():
+        # check if user made any orders
         if user.id in cart[chat_id].keys():
             user_cart = cart[chat_id][user.id]
             keyboard = []
 
+            # iterate through every category
             for category_id in user_cart.keys():
+                # iterate through every product ordered in that category
                 for product_id in user_cart[category_id].keys():
                     amount = user_cart[category_id][product_id]
                     name = menu[category_id]['products'][product_id]['name']
                     price = menu[category_id]['products'][product_id]['price']
-
+                    # add product to list of items ordered with id's as callback data
                     keyboard.append([InlineKeyboardButton(str(amount) + "x " + name + " " + price,
                                                           callback_data=json.dumps({"category_id": category_id,
                                                                                     "product_id": product_id}))])
-
+            # option to remove all products from user cart with negative id's
             keyboard.append([InlineKeyboardButton("Remove all products",
-                                                  callback_data=json.dumps({"category_id": category_id,
+                                                  callback_data=json.dumps({"category_id": -1,
                                                                             "product_id": -1}))])
-            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            reply_markup = InlineKeyboardMarkup(keyboard)  #
+            # edit last message send by bot
             bot.edit_message_text(chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
                                   text="Select product to remove from cart:",
                                   reply_markup=reply_markup)
+            # notify ConversationHandler of FOURTH stage
             return FOURTH
 
+    # edit last message to notification that the user ordered no products and add a Button back to start menu
     keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text="No products in your cart!",
                           reply_markup=InlineKeyboardMarkup(keyboard))
+    # notify ConversationHandler of SEVENTH stage
     return SEVENTH
 
 
 def remove_from_cart(update, context):
+    """removes one or all products ordered by user from cart
+
+    response to option selected in :func:`cart_inline_keyboard`"""
     bot = context.bot
     query = update.callback_query
 
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
+    # loads json received from callback_data into dictionary
     ids = json.loads(query.data)
     category_id = ids['category_id']
     product_id = ids['product_id']
 
+    # user selected to remove all products from cart
     if product_id == -1:
+        # delete user from cart
         del cart[chat_id][user_id]
+        # when no other orders where made in this group chat also delete group from cart
         if not bool(cart[chat_id]):
             del cart[chat_id]
         message = "All products removed from your cart!"
+    # user selected product
     else:
+        # reduce the quantity when there is more than one order for this product
         if cart[chat_id][user_id][category_id][product_id] > 1:
             cart[chat_id][user_id][category_id][product_id] -= 1
         else:
+            # delete product
             del cart[chat_id][user_id][category_id][product_id]
+            # delete category when no other products where ordered in this category by user
             if not bool(cart[chat_id][user_id][category_id]):
                 del cart[chat_id][user_id][category_id]
-            if not bool(cart[chat_id][user_id]):
-                del cart[chat_id][user_id]
-            if not bool(cart[chat_id]):
-                del cart[chat_id]
+                # delete user when no other products where ordered by user
+                if not bool(cart[chat_id][user_id]):
+                    del cart[chat_id][user_id]
+                    # delete group when no no other users ordered in group chat
+                    if not bool(cart[chat_id]):
+                        del cart[chat_id]
         message = "Removed " + menu[category_id]['products'][product_id]['name'] + "from your cart. Your " \
                                                                                    "cart: \n" + \
                   str_user_cart(chat_id, user_id)['message']
-
+    # InlineKeyboard back to start menu or the option to remove more
     keyboard = [[InlineKeyboardButton("remove more", callback_data=str(THREE))],
                 [InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
-
+    # change last message send by bot
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text=message,
                           reply_markup=InlineKeyboardMarkup(keyboard))
+    # notify ConversationHandler of SEVENTH stage
     return SEVENTH
 
 
 def show_cart(update, context):
+    """edit message text to user cart"""
     bot = context.bot
     query = update.callback_query
 
     chat_id = update.effective_chat.id
     user = update.effective_user
 
+    # all items ordered by user in message and his price to pay for them
     message_and_price = str_user_cart(chat_id, user.id)
-
+    # InlineKeyboard back to start menu
     keyboard = [[InlineKeyboardButton("back to menu", callback_data=str(ONE))]]
+    # change last message send by bot
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text=message_and_price['message'],
                           reply_markup=InlineKeyboardMarkup(keyboard))
-
+    # notify ConversationHandler of SEVENTH stage
     return SEVENTH
 
 
@@ -278,7 +328,7 @@ def str_group_cart(chat_id: str):
 
 
 def show_group_cart(update, context):
-    """replies the group chat cart to chat"""
+    """edit last message in chat to the group chat cart"""
     bot = context.bot
     query = update.callback_query
     chat_id = update.effective_chat.id
@@ -288,7 +338,7 @@ def show_group_cart(update, context):
                           message_id=query.message.message_id,
                           text=str_group_cart(chat_id),
                           reply_markup=InlineKeyboardMarkup(keyboard))
-    # notifies the ConversationHandler of stage SEVEN
+    # notify the ConversationHandler of SEVENTH stage
     return SEVENTH
 
 
@@ -313,7 +363,7 @@ def finish_question(update, context):
     bot.edit_message_text(chat_id=query.message.chat_id,
                           message_id=query.message.message_id,
                           text="No orders made in this group chat!")
-    # notifies the ConversationHandler the Conversation ended
+    # notify the ConversationHandler the Conversation ended
     return ConversationHandler.END
 
 
@@ -330,14 +380,14 @@ def finish(update, context):
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text=message)
-        # notifies the ConversationHandler the Conversation ended
+        # notify the ConversationHandler that the Conversation ended
         return ConversationHandler.END
     # last message ist edited and nothing changed because the user decided otherwise
     if query.data == "no":
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="No order made!")
-        # notifies the ConversationHandler that the Conversation ended
+        # notify the ConversationHandler that the Conversation ended
         return ConversationHandler.END
     # shows start menu
     if query.data == "menu":
@@ -379,14 +429,14 @@ def clear_all(update, context):
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="Deleted all orders for this chat!")
-        # notifies the ConversationHandler that the Conversation ended
+        # notify the ConversationHandler that the Conversation ended
         return ConversationHandler.END
     # last message ist edited and nothing deleted because the user decided otherwise
     if query.data == "no":
         bot.edit_message_text(chat_id=query.message.chat_id,
                               message_id=query.message.message_id,
                               text="Nothing changed!")
-        # notifies the ConversationHandler that the Conversation ended
+        # notify the ConversationHandler that the Conversation ended
         return ConversationHandler.END
     # shows start menu
     if query.data == "menu":

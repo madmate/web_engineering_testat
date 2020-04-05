@@ -1,3 +1,6 @@
+"""
+Parser for delivery service menu provided in html into json
+"""
 from bs4 import BeautifulSoup
 import requests
 import json
